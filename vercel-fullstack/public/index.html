@@ -6170,6 +6170,106 @@ setTimeout(()=>{
   }
 }, 300);
 
+
+// ===== SHOT CARDS =====
+function hienShotCards(text){
+  const el = document.getElementById('kb-shots-list');
+  const wrap = document.getElementById('kb-shots-wrap');
+  if(!el) return;
+
+  // Parse shot blocks
+  const shotBlocks = text.split(/[═=]{2,}\s*SHOT\s*[\[\(]?\d+[\]\)]?\s*[═=]{2,}/i).slice(1);
+
+  // Fallback
+  if(!shotBlocks.length){
+    const alt = text.split(/(?:^|\n)(?:SHOT|Shot)\s*\d+[:\s]/m);
+    if(alt.length > 1) shotBlocks.push(...alt.slice(1));
+  }
+  if(!shotBlocks.length) return;
+
+  kbShotData = shotBlocks.map((block, i) => {
+    const timeMatch = block.match(/(?:⏱|Time|Thời gian)[^\d]*(\d+(?:\.\d+)?)\s*[s–\-→]\s*(\d+(?:\.\d+)?)/i);
+    const camMatch = block.match(/(?:📷|Camera|Cú máy)[^\n]*:\s*([^\n]+)/i);
+    const actionMatch = block.match(/(?:🎭|Action|Hành động)[^\n]*:\s*([^\n]+)/i);
+    const promptMatch = block.match(/PROMPT[\s\S]*?:\s*([\s\S]+?)(?:\n\n|\n═|$)/i);
+
+    return {
+      idx: i + 1,
+      time: timeMatch ? `${timeMatch[1]}s – ${timeMatch[2]}s` : '',
+      cam: camMatch ? camMatch[1].trim().slice(0, 50) : '',
+      action: actionMatch ? actionMatch[1].trim() : '',
+      prompt: promptMatch ? promptMatch[1].trim() : '',
+      fullBlock: block.trim()
+    };
+  });
+
+  if(wrap) wrap.style.display = '';
+
+  el.innerHTML = kbShotData.map(s => `
+    <div style="background:var(--card);border:1px solid #2a1a1a;border-radius:9px;overflow:hidden;margin-bottom:4px">
+      <div style="padding:9px 13px;background:#1a0808;border-bottom:1px solid #2a1a1a;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+        <div>
+          <span style="font-size:12px;font-weight:500;color:#ff6b6b">🎬 SHOT ${s.idx}</span>
+          ${s.time ? `<span style="font-size:10px;color:var(--gold);margin-left:8px">⏱ ${s.time}</span>` : ''}
+          ${s.cam ? `<span style="font-size:10px;color:var(--muted);margin-left:8px">📷 ${s.cam}</span>` : ''}
+        </div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">
+          <button class="btn-i" onclick="apDungMot(${s.idx-1})" style="font-size:10px;border-color:var(--green);color:var(--green)">🎥 → Dựng Cảnh</button>
+          <button class="btn-i" onclick="apDungTatCa()" style="font-size:10px;border-color:#ff6b6b;color:#ff6b6b">⚡ Tất Cả</button>
+        </div>
+      </div>
+      <div style="padding:10px 13px;font-size:11px;color:var(--ink);line-height:1.7;cursor:pointer" onclick="this.style.maxHeight=this.style.maxHeight==='none'?'80px':'none'">
+        ${s.action || s.fullBlock.slice(0, 200)}
+      </div>
+    </div>`).join('');
+}
+
+function apDungMot(idx){
+  const s = kbShotData[idx];
+  if(!s) return;
+  soId++;
+  const timeMatch = s.time ? s.time.match(/(\d+(?:\.\d+)?)\s*[s–\-]\s*(\d+(?:\.\d+)?)/) : null;
+  const start = timeMatch ? parseFloat(timeMatch[1]) : (idx * 5);
+  const end = timeMatch ? parseFloat(timeMatch[2]) : (start + 5);
+  cacShot.unshift({
+    id: soId, start, end, tg: end - start,
+    cuMay: s.cam || '', angle: '', lens: '', speed: '',
+    shotSize: '', specialFx: '',
+    moTa: s.prompt || s.action || '',
+    thoai: 'Không thoại'
+  });
+  veShot();
+  sw('shots');
+  window.scrollTo({top:0, behavior:'smooth'});
+  setTimeout(()=>{ const bd=document.getElementById('sb-'+soId); if(bd)bd.style.display=''; }, 100);
+  const btn = document.querySelector(`[onclick="apDungMot(${idx})"]`);
+  if(btn){ const o=btn.innerHTML; btn.innerHTML='✓ Đã thêm!'; setTimeout(()=>btn.innerHTML=o, 2000); }
+}
+
+function apDungTatCa(){
+  if(!kbShotData.length){ alert('Chưa có shot nào.'); return; }
+  [...kbShotData].reverse().forEach((s, i) => {
+    soId++;
+    const timeMatch = s.time ? s.time.match(/(\d+(?:\.\d+)?)\s*[s–\-]\s*(\d+(?:\.\d+)?)/) : null;
+    const start = timeMatch ? parseFloat(timeMatch[1]) : (i * 5);
+    const end = timeMatch ? parseFloat(timeMatch[2]) : (start + 5);
+    cacShot.unshift({
+      id: soId, start, end, tg: end - start,
+      cuMay: s.cam || '', angle: '', lens: '', speed: '',
+      shotSize: '', specialFx: '',
+      moTa: s.prompt || s.action || '',
+      thoai: 'Không thoại'
+    });
+  });
+  veShot();
+  sw('shots');
+  document.querySelectorAll('[onclick="apDungTatCa()"]').forEach(btn => {
+    const o = btn.innerHTML;
+    btn.innerHTML = '✓ Đã thêm ' + kbShotData.length + ' shots!';
+    setTimeout(() => btn.innerHTML = o, 2500);
+  });
+}
+
 // ===== INIT =====
 napPromptMau();
 veHooks();
